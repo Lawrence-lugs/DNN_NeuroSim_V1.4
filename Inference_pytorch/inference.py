@@ -112,6 +112,9 @@ trained_with_quantization = True
 criterion = torch.nn.CrossEntropyLoss()
 # criterion = wage_util.SSE()
 
+# LAW: Save model
+# torch.jit.script(modelCF).save('log/model.ts')
+
 # NOTE: Parallel read is not supported in inference accuracy simulation with multi-level cells yet
 if args.parallelRead < args.subArray and args.cellBit > 1:
     logger('\n=====================================================================================')
@@ -130,7 +133,7 @@ for i, (data, target) in enumerate(test_loader):
     if args.cuda:
         data, target = data.cuda(), target.cuda()
     with torch.no_grad():
-        data, target = Variable(data), Variable(target)
+        data, target = Variable(data), Variable(target) # outdated way of activating autograd, this is no longer needed
         output = modelCF(data)
         test_loss_i = criterion(output, target)
         test_loss += test_loss_i.data

@@ -45,7 +45,7 @@ ALLOBJ := $(ALLSRC:.cpp=.o)
 OBJ := $(SRC:.cpp=.o)
 
 CXX := g++
-CXXFLAGS := -fopenmp -O3 -std=c++0x -w	# -w disables warnings
+CXXFLAGS := -fopenmp -O3 -std=c++0x -w -ggdb	# -w disables warnings
 
 .PHONY: all clean
 all: $(MAINS:.cpp=)

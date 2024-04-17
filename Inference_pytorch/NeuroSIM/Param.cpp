@@ -95,7 +95,7 @@ Param::Param() {
 	reLu = true;                // false: sigmoid
 								// true: reLu
 								
-	novelMapping = true;        // false: conventional mapping
+	novelMapping = false;        // false: conventional mapping
 								// true: novel mapping
 								
 	SARADC = false;              // false: MLSA
@@ -103,9 +103,9 @@ Param::Param() {
 	currentMode = true;         // false: MLSA use VSA
 	                            // true: MLSA use CSA
 	
-	pipeline = true;            // false: layer-by-layer process --> huge leakage energy in HP
+	pipeline = false;            // false: layer-by-layer process --> huge leakage energy in HP
 								// true: pipeline process
-	speedUpDegree = 8;          // 1 = no speed up --> original speed
+	speedUpDegree = 1;          // 1 = no speed up --> original speed
 								// 2 and more : speed up ratio, the higher, the faster
 								// A speed-up degree upper bound: when there is no idle period during each layer --> no need to further fold the system clock
 								// This idle period is defined by IFM sizes and data flow, the actual process latency of each layer may be different due to extra peripheries
@@ -200,8 +200,10 @@ Param::Param() {
 
 	outputtoggle = 0.5; // output bit toggling has a negligible portion of the interconnect energy. Set it to 50 % for simpliciity and generalizability for all neural network workloads.
 
-	numRowSubArray = 128;               // # of rows in single subArray
-	numColSubArray = 128;               // # of columns in single subArray
+	// Law: NumRowSubArray is deprecated by the Pytorch wrapper
+	// It's now parsed from trace_command.sh
+	numRowSubArray = 256;               // # of rows in single subArray
+	numColSubArray = 256;               // # of columns in single subArray
 
 	// 230920 update
 

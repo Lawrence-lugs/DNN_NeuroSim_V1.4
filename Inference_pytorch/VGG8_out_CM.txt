@@ -1,0 +1,11 @@
+/home/lquizon/lawrence-workspace/300/Neurosim/DNN_Neurosim/Inference_pytorch/log/default/ADCprecision=5/batch_size=200/cellBit=2/dataset=cifar10/decreasing_lr=140,180/detect=0/grad_scale=8/inference=1/lr=0.01/mode=FP/model=VGG8/onoffratio=10/parallelRead=256/seed=117/subArray=256/t=0/target=0/v=0/vari=0.0/wl_activate=8/wl_error=8/wl_grad=8/wl_weight=8
+Building CIFAR-10 data loader with 1 workers
+Files already downloaded and verified
+Files already downloaded and verified
+quantize layer  Conv0_
+quantize layer  Conv1_
+quantize layer  Conv3_
+quantize layer  Conv4_
+quantize layer  Conv6_
+quantize layer  Conv7_
+quantize layer  FC0_
