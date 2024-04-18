@@ -481,7 +481,7 @@ void TileCalculatePerformance(const vector<vector<double> > &newMemory, const ve
 					// each cycle assign to different PE
 					if ( (i*peSize < weightMatrixRow) && (j*peSize < weightMatrixCol) ) {
 						// assign weight and input to specific tile
-						int numRowMatrix = min(peSize, (double) weightMatrixRow-i*peSize);
+						int numRowMatrix = min(peSize, (double) weightMatrixRow-i*peSize); // Law: The remaining non PE-filling part 
 						int numColMatrix = min(peSize, (double) weightMatrixCol-j*peSize);
 						
 						vector<vector<double> > pEMemory;
@@ -490,11 +490,12 @@ void TileCalculatePerformance(const vector<vector<double> > &newMemory, const ve
 						pEInput = CopyPEInput(inputVector, i*peSize, numInVector, numRowMatrix);
 						// Anni update
 
-			// Anni update: PEleakageSRAMInUse
-			ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemory, pEInput, 1, 1, numSubArrayRow, numSubArrayCol, weightMatrixRow/numPE,
-									weightMatrixCol, numInVector, cell, false, &PEreadLatency, &PEreadDynamicEnergy, &PEleakage, &PEleakageSRAMInUse,
-									&PEbufferLatency, &PEbufferDynamicEnergy, &PEicLatency, &PEicDynamicEnergy, 
-									&peLatencyADC, &peLatencyAccum, &peLatencyOther, &peEnergyADC, &peEnergyAccum, &peEnergyOther, CalculateclkFreq, clkPeriod);
+						// Anni update: PEleakageSRAMInUse
+						// Law: Reverted to 1.3 version of the line using numRowMatrix and numColMatrix
+						ProcessingUnitCalculatePerformance(subArrayInPE, pEMemory, pEMemory, pEInput, 1, 1, numSubArrayRow, numSubArrayCol, numRowMatrix,
+											numColMatrix, numInVector, cell, false, &PEreadLatency, &PEreadDynamicEnergy, &PEleakage, &PEleakageSRAMInUse,
+											&PEbufferLatency, &PEbufferDynamicEnergy, &PEicLatency, &PEicDynamicEnergy, 
+											&peLatencyADC, &peLatencyAccum, &peLatencyOther, &peEnergyADC, &peEnergyAccum, &peEnergyOther, CalculateclkFreq, clkPeriod);
 
 					}
 					*readLatency = max(PEreadLatency, (*readLatency));
