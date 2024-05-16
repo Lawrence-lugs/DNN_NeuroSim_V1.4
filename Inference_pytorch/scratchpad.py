@@ -29,10 +29,12 @@ from matplotlib.ticker import EngFormatter
 
 sns.set_theme()
 
-titles = ['NeuroSim NM','RectPack','RectPack with Hierarchy']
-values = [142606333,13041644,13631488]
+titles = ['NeuroSim NM Default','RectPack','NeuroSim CM 1x SPD']
+synapses = [142606333,103809024,134217728]
+utilizations = [0.7943,0.99979,]
 
 fig,ax = plt.subplots()
-plt.bar(titles,values)
+plt.bar(titles,synapses)
 
 ax.yaxis.set_major_formatter(EngFormatter(unit=''))
+# %%

@@ -129,20 +129,8 @@ criterion = torch.nn.CrossEntropyLoss()
 
 
 # Very ad-hoc shape extraction, but everything is ad-hoc when trying to make flow graphs out of Pytorch
-shape_list_id = [] # shape 
+shape_list = [] # shape 
 i = 0
-for layer_name,layer_weights in modelCF.state_dict().items():
-    if 'weight' in layer_name:
-        if 'bn' not in layer_name:
-            if 'downsample.1' not in layer_name:
-                shape_list_id.append((*(layer_weights.flatten(start_dim=1).shape),i))
-                i=i+1
-
-shape_list_id
-
-#%%
-
-shape_list = [] 
 for layer_name,layer_weights in modelCF.state_dict().items():
     if 'weight' in layer_name:
         if 'bn' not in layer_name:
@@ -150,6 +138,11 @@ for layer_name,layer_weights in modelCF.state_dict().items():
                 shape_list.append(layer_weights.flatten(start_dim=1).shape)
 
 shape_list
+
+#%%
+
+for i,shape in enumerate(shape_list):
+    shape_list[i] = (shape[0],shape[1]*args.wl_weight)
 
 # from aimc_tasks.comp_graph import core
 # from aimc_tasks.comp_graph import splitter
@@ -180,7 +173,7 @@ acc_mapping.packer.rect_list()
 #%%
 from aimc_tasks.comp_graph.packer_utils import plot_packing_tiled
 plot_packing_tiled(acc_mapping.packer,
-                   args.model,
+                   f'{args.model}_{args.wl_weight}_{args.wl_activate}',
                    20)
 
 # Call with pandas
