@@ -68,13 +68,18 @@ int main(int argc, char * argv[]) {
     
     vector<vector<double> > netStructure;
     netStructure = getNetStructure(argv[1]);
+
+    vector<vector<double>> rectList;
+    if(param->rectpack){
+        // getNetStructure is just a csv to 2D vector parser
+        rectList = getNetStructure(argv[argc-1]);
+    }
     
     // define weight/input/memory precision from wrapper
     param->synapseBit = atoi(argv[2]);              // precision of synapse weight
     param->numBitInput = atoi(argv[3]);             // precision of input neural activation
     param->numRowSubArray = atoi(argv[4]);             // number row of subarray
     param->numRowParallel = atoi(argv[5]);             // number of enabled rows of subarray (partial paralle mode)
-
 
     if (param->cellBit > param->synapseBit) {
         cout << "ERROR!: Memory precision is even higher than synapse precision, please modify 'cellBit' in Param.cpp!" << endl;
@@ -141,13 +146,15 @@ int main(int argc, char * argv[]) {
     } else {
         param->numColPerSynapse = ceil((double)param->synapseBit/(double)param->cellBit); 
     }
-    
 
     // 1.4 update : Implementation for conventional sequential 
     if ( ( param->conventionalSequential == 1 || param->conventionalSequential == 3 || param->conventionalSequential == 5 ) && (param->memcelltype==1) )
     {
     param->numColMuxed = param->numColPerSynapse;
     }
+
+    // At this point, param is in its final version
+
 
     double maxPESizeNM, maxTileSizeCM, numPENM;
     vector<int> markNM;
@@ -165,19 +172,19 @@ int main(int argc, char * argv[]) {
     
     numTileEachLayer = ChipFloorPlan(true, false, false, netStructure, markNM, 
                     maxPESizeNM, maxTileSizeCM, numPENM, pipelineSpeedUp,
-                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol);    
+                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rectList);    
     
     utilizationEachLayer = ChipFloorPlan(false, true, false, netStructure, markNM, 
                     maxPESizeNM, maxTileSizeCM, numPENM, pipelineSpeedUp,
-                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol);
+                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rectList);
     
     speedUpEachLayer = ChipFloorPlan(false, false, true, netStructure, markNM,
                     maxPESizeNM, maxTileSizeCM, numPENM, pipelineSpeedUp,
-                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol);
+                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rectList);
                     
     tileLocaEachLayer = ChipFloorPlan(false, false, false, netStructure, markNM,
                     maxPESizeNM, maxTileSizeCM, numPENM, pipelineSpeedUp,
-                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol);
+                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rectList);
     
     cout << "------------------------------ FloorPlan --------------------------------" <<  endl;
     cout << endl;
@@ -548,56 +555,61 @@ int main(int argc, char * argv[]) {
     
     // debugging code
 
-    /*
+    // Law: inference.py provides 2nd to the last argument as path of file to write to
     fstream read;
-    // read.open("filelocation/filename",fstream::app);    
-    read.open("/home/junmo/DNN_NeuroSim_V1.4/Inference_pytorch/NeuroSIM/Data_TechnologyUpdate/overall_metrics.csv",fstream::app); 
-    
-    // enter the filelocation/filename where you want to store the printed values. 
+    if(param->rectpack){
+        // if rectpack, the logpath is the 2nd to the last file
+        read.open(argv[argc - 2],fstream::app); 
+    } else {
+        // if not rectpack, the logpath is the last on arg list 
+        read.open(argv[argc - 1],fstream::app); 
+    }
 
-    read<<param->technode<<", " ;
-    read<<param->operationmode<<", ";
-    read<<param->memcelltype<<", ";
-    read<<param->accesstype<<", ";
+    read<<"Technode,"<<param->technode<<endl;
+    read<<"operationmode,"<<param->operationmode<<endl;
+    read<<"memcelltype,"<<param->memcelltype<<endl;
+    read<<"accesstype,"<<param->accesstype<<endl;
 
-    read<<chipArea*1e12<<", "<<chipAreaArray*1e12<<", "<<chipAreaIC*1e12<<", ";
-    read<<chipAreaADC*1e12<<", "<<chipAreaAccum*1e12<<", "<<chipAreaOther*1e12<<", ";
-    read<<clkPeriod*1e9<<", ";
-    read<<chipReadLatency*1e9<<", ";
-    read<<chipReadDynamicEnergy*1e12<<", ";
-    read<<chipLeakageEnergy*1e12<<", ";
-    read<<chipLeakage*1e6<<", ";
+    read<<"chipArea,"<<chipArea*1e12<<endl;
+    read<<"chipAreaArray,"<<chipAreaArray*1e12<<endl;
+    read<<"chipAreaIC,"<<chipAreaIC*1e12<<endl;
+    read<<"chipAreaADC,"<<chipAreaADC*1e12<<endl;
+    read<<"chipAreaAccum,"<<chipAreaAccum*1e12<<endl;
+    read<<"chipAreaOther,"<<chipAreaOther*1e12<<endl;
+    read<<"clkPeriod,"<<clkPeriod*1e9<<endl;
+    read<<"chipReadLatency,"<<chipReadLatency*1e9<<endl;
+    read<<"chipReadDynamicEnergy,"<<chipReadDynamicEnergy*1e12<<endl;
+    read<<"chipLeakageEnergy,"<<chipLeakageEnergy*1e12<<endl;
+    read<<"chipLeakage,"<<chipLeakage*1e6<<endl;
 
-    read<<chipbufferLatency*1e9<<", ";
-    read<<chipbufferReadDynamicEnergy*1e12<<", ";
-    read<<chipicLatency*1e9 <<", ";
-    read<<chipicReadDynamicEnergy*1e12 <<", ";
+    read<<"chipbufferLatency,"<<chipbufferLatency*1e9<<endl;
+    read<<"chipbufferReadDynamicEnergy,"<<chipbufferReadDynamicEnergy*1e12<<endl;
+    read<<"chipicLatency,"<<chipicLatency*1e9 <<endl;
+    read<<"chipicReadDynamicEnergy,"<<chipicReadDynamicEnergy*1e12 <<endl;
 
-    read<<chipLatencyADC*1e9<<", ";
-    read<<chipLatencyAccum*1e9 <<", ";
-    read<<chipLatencyOther*1e9 <<", ";
-    read<<chipEnergyADC*1e12 <<", ";
-    read<<chipEnergyAccum*1e12<<", ";
-    read<<chipEnergyOther*1e12<<", ";
+    read<<"chipLatencyADC,"<<chipLatencyADC*1e9<<endl;
+    read<<"chipLatencyAccum,"<<chipLatencyAccum*1e9 <<endl;
+    read<<"chipLatencyOther,"<<chipLatencyOther*1e9 <<endl;
+    read<<"chipEnergyADC,"<<chipEnergyADC*1e12 <<endl;
+    read<<"chipEnergyAccum,"<<chipEnergyAccum*1e12<<endl;
+    read<<"chipEnergyOther,"<<chipEnergyOther*1e12<<endl;
 
-    read<<numComputation/(chipReadDynamicEnergy*1e12+chipLeakageEnergy*1e12)/param->zeta<<", ";
-    read<<numComputation/(chipReadLatency*1e12)<<", ";
-    read<<1/(chipReadLatency) <<", ";
-    read<<numComputation/(chipReadLatency*1e12)/(chipArea*1e6) <<", ";
-    read<<numComputation<<", ";
-    read<< "param->inputtoggle"<<", "<<param->inputtoggle<<", ";
-    read<< "param->numRowParallel"<<", "<<param->numRowParallel<<", ";
-    read<< "onoff"<<", "<<param->resistanceOn/param->resistanceOff<<", ";
-    read<< "levelOutput"<<", "<<param->levelOutput <<", ";
-    read<< "CellBit"<<", "<<param->cellBit <<", ";
-    read<< "ADCcurrentmode" <<", "<<param->currentMode<<", ";
-    read<< "SubArraySize" <<", "<<param->numRowSubArray<<", ";
-    read<< "ADCdelay" <<", "<<param->ADClatency<<", ";
-    read<< "rowdelay" <<", "<<param->rowdelay<<", ";
-    read<< "muxdelay" <<", "<<param->muxdelay<<", ";
+    read<<"TOPS/W,"<<numComputation/(chipReadDynamicEnergy*1e12+chipLeakageEnergy*1e12)/param->zeta<<endl;
+    read<<"TOPS,"<<numComputation/(chipReadLatency*1e12)<<endl;
+    read<<"FPS,"<<1/(chipReadLatency) <<endl;
+    read<<"TOPS/mm,"<<numComputation/(chipReadLatency*1e12)/(chipArea*1e6) <<endl;
+    read<<"TotalOPS,"<<numComputation<<endl;
+    read<< "param->inputtoggle"<<", "<<param->inputtoggle<<endl;
+    read<< "param->numRowParallel"<<", "<<param->numRowParallel<<endl;
+    read<< "onoff"<<", "<<param->resistanceOn/param->resistanceOff<<endl;
+    read<< "levelOutput"<<", "<<param->levelOutput <<endl;
+    read<< "CellBit"<<", "<<param->cellBit <<endl;
+    read<< "ADCcurrentmode" <<", "<<param->currentMode<<endl;
+    read<< "SubArraySize" <<", "<<param->numRowSubArray<<endl;
+    read<< "ADCdelay" <<", "<<param->ADClatency<<endl;
+    read<< "rowdelay" <<", "<<param->rowdelay<<endl;
+    read<< "muxdelay" <<", "<<param->muxdelay<<endl;
     read<<endl;
-
-    */
 
     return 0;
 }
@@ -649,7 +661,4 @@ vector<vector<double> > getNetStructure(const string &inputfile) {
     return netStructure;
     netStructure.clear();
 }   
-
-
-
 

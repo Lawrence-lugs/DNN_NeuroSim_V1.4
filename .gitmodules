@@ -1,0 +1,6 @@
+[submodule "Inference_pytorch/aimc-tasks"]
+	path = Inference_pytorch/aimc-tasks
+	url = git@github.com:Lawrence-lugs/aimc-tasks.git
+[submodule "Inference_pytorch/aimc_tasks"]
+	path = Inference_pytorch/aimc_tasks
+	url = git@github.com:Lawrence-lugs/aimc-tasks.git

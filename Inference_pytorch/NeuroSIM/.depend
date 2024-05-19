@@ -62,14 +62,6 @@ ProcessingUnit.o: ProcessingUnit.cpp Bus.h typedef.h InputParameter.h \
  NewSwitchMatrix.h CurrentSenseAmp.h MultilevelSenseAmp.h \
  MultilevelSAEncoder.h SarADC.h LevelShifter.h ProcessingUnit.h Param.h \
  AdderTree.h
-ProcessingUnit_V1_3.o: ProcessingUnit_V1_3.cpp Bus.h typedef.h \
- InputParameter.h Technology.h MemCell.h FunctionUnit.h SubArray.h \
- formula.h Adder.h RowDecoder.h Mux.h WLDecoderOutput.h DFF.h DeMux.h \
- Precharger.h SenseAmp.h DecoderDriver.h SRAMWriteDriver.h ReadCircuit.h \
- SwitchMatrix.h ShiftAdd.h WLNewDecoderDriver.h constant.h \
- NewSwitchMatrix.h CurrentSenseAmp.h MultilevelSenseAmp.h \
- MultilevelSAEncoder.h SarADC.h LevelShifter.h ProcessingUnit.h Param.h \
- AdderTree.h
 ReadCircuit.o: ReadCircuit.cpp constant.h formula.h Technology.h \
  typedef.h ReadCircuit.h InputParameter.h MemCell.h FunctionUnit.h
 RowDecoder.o: RowDecoder.cpp constant.h formula.h Technology.h typedef.h \
@@ -102,14 +94,6 @@ SwitchMatrix.o: SwitchMatrix.cpp constant.h formula.h Technology.h \
 Technology.o: Technology.cpp Technology.h typedef.h
 Tile.o: Tile.cpp Sigmoid.h typedef.h InputParameter.h Technology.h \
  MemCell.h FunctionUnit.h Adder.h DFF.h RowDecoder.h Mux.h \
- DecoderDriver.h VoltageSenseAmp.h SenseAmp.h Precharger.h \
- SRAMWriteDriver.h BitShifter.h AdderTree.h Buffer.h HTree.h \
- ProcessingUnit.h SubArray.h formula.h WLDecoderOutput.h DeMux.h \
- ReadCircuit.h SwitchMatrix.h ShiftAdd.h WLNewDecoderDriver.h constant.h \
- NewSwitchMatrix.h CurrentSenseAmp.h MultilevelSenseAmp.h \
- MultilevelSAEncoder.h SarADC.h LevelShifter.h Param.h Tile.h
-Tile_V1_3.o: Tile_V1_3.cpp Sigmoid.h typedef.h InputParameter.h \
- Technology.h MemCell.h FunctionUnit.h Adder.h DFF.h RowDecoder.h Mux.h \
  DecoderDriver.h VoltageSenseAmp.h SenseAmp.h Precharger.h \
  SRAMWriteDriver.h BitShifter.h AdderTree.h Buffer.h HTree.h \
  ProcessingUnit.h SubArray.h formula.h WLDecoderOutput.h DeMux.h \

@@ -187,8 +187,7 @@ vector<int> ChipDesignInitialize(InputParameter& inputParameter, Technology& tec
 
 vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bool findSpeedUp, const vector<vector<double> > &netStructure, const vector<int > &markNM, 
 					double maxPESizeNM, double maxTileSizeCM, double numPENM, const vector<int> &pipelineSpeedUp,
-					double *desiredNumTileNM, double *desiredPESizeNM, double *desiredNumTileCM, double *desiredTileSizeCM, double *desiredPESizeCM, int *numTileRow, int *numTileCol) {
-	
+					double *desiredNumTileNM, double *desiredPESizeNM, double *desiredNumTileCM, double *desiredTileSizeCM, double *desiredPESizeCM, int *numTileRow, int *numTileCol, const vector<vector<double> > &rectList) {
 	
 	int numRowPerSynapse, numColPerSynapse;
 	numRowPerSynapse = param->numRowPerSynapse;
@@ -210,6 +209,33 @@ vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bo
 	*desiredPESizeCM = 0;
 	*numTileRow = 0;
 	*numTileCol = 0;
+
+
+	if (param->rectpack) {
+
+		// rectpack mapping
+		// reuse variables of conventional mapping 
+		
+		if(rectList.size() > 256){
+			// Convention to use 4x4 elements per hierarchy borrowed from digital accelerators (Mei, Verhelst)
+			*desiredPESizeCM = 4*param->numRowSubArray;
+			*desiredTileSizeCM = 4*param->numRowSubArray;
+		} else {
+			// Too many cells will be wasted. Keep minimum sizes possible for hierarchy.
+			*desiredPESizeCM = 2*param->numRowSubArray;
+			*desiredTileSizeCM = 2*param->numRowSubArray;
+		}
+
+		*desiredNumTileCM = rectList.size();	
+
+		peDup = PEDesign(false, (*desiredPESizeCM), (*desiredTileSizeCM), (*desiredNumTileCM), markNM, netStructure, numRowPerSynapse, numColPerSynapse);
+		/*** SubArray Duplication ***/
+		subArrayDup = SubArrayDup((*desiredPESizeCM), 0, markNM, netStructure, numRowPerSynapse, numColPerSynapse);
+		/*** Design SubArray ***/
+		numTileEachLayer = OverallEachLayer(false, false, peDup, subArrayDup, pipelineSpeedUp, (*desiredTileSizeCM), 0, markNM, netStructure, numRowPerSynapse, numColPerSynapse, numPENM);
+		utilizationEachLayer = OverallEachLayer(true, false, peDup, subArrayDup, pipelineSpeedUp, (*desiredTileSizeCM), 0, markNM, netStructure, numRowPerSynapse, numColPerSynapse, numPENM);
+		speedUpEachLayer = OverallEachLayer(false, true, peDup, subArrayDup, pipelineSpeedUp, (*desiredTileSizeCM), 0, markNM, netStructure, numRowPerSynapse, numColPerSynapse, numPENM);
+	}
 
 	if (param->novelMapping) {		// Novel Mapping
 		if (maxPESizeNM < 2*param->numRowSubArray) {
@@ -271,7 +297,9 @@ vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bo
 			utilizationEachLayer = OverallEachLayer(true, false, peDup, subArrayDup, pipelineSpeedUp, (*desiredTileSizeCM), (*desiredPESizeNM), markNM, netStructure, numRowPerSynapse, numColPerSynapse, numPENM);
 			speedUpEachLayer = OverallEachLayer(false, true, peDup, subArrayDup, pipelineSpeedUp, (*desiredTileSizeCM), (*desiredPESizeNM), markNM, netStructure, numRowPerSynapse, numColPerSynapse, numPENM);
 		}
-	} else {   // all Conventional Mapping
+	}
+		   
+	if (!param->novelMapping) {     // all Conventional Mapping
 		if (maxTileSizeCM < 4*param->numRowSubArray) {
 			cout << "ERROR: SubArray Size is too large, which break the chip hierarchey, please decrease the SubArray size! " << endl;
 		} else {
@@ -314,7 +342,7 @@ vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bo
 			speedUpEachLayer = OverallEachLayer(false, true, peDup, subArrayDup, pipelineSpeedUp, (*desiredTileSizeCM), 0, markNM, netStructure, numRowPerSynapse, numColPerSynapse, numPENM);
 		}
 	}
-	
+		
 	if (param->pipeline) {
 		// update # of tile for pipeline system design
 		*desiredNumTileCM = 0;
@@ -327,6 +355,7 @@ vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bo
 			}
 		}
 	}
+	
 	
 	*numTileRow = ceil((double)sqrt((double)(*desiredNumTileCM)+(double)(*desiredNumTileNM)));
 	*numTileCol = ceil((double)((*desiredNumTileCM)+(*desiredNumTileNM))/(double)(*numTileRow));
@@ -1184,10 +1213,14 @@ vector<vector<double> > PEDesign(bool Design, double peSize, double desiredTileS
 	for (int i=0; i<netStructure.size(); i++) {
 		int actualDupRow = 0;
 		int actualDupCol = 0;
-		if (markNM[i] ==0) {
-			if ( (netStructure[i][2]*netStructure[i][3]*netStructure[i][4]*numRowPerSynapse <= desiredTileSize)||(netStructure[i][5]*numColPerSynapse <= desiredTileSize) ) {
-				int peForOneMatrixRow = ceil((double) netStructure[i][2]*(double) netStructure[i][3]*(double) netStructure[i][4]*(double) numRowPerSynapse/(double) peSize);
-				int peForOneMatrixCol = ceil((double) netStructure[i][5]*(double) numColPerSynapse/(double) peSize);
+		if (markNM[i] == 0 || param->rectpack) {
+			
+			double layer_rows = netStructure[i][2]*netStructure[i][3]*netStructure[i][4]* (double) numRowPerSynapse;
+			double layer_cols = netStructure[i][5]* (double) numColPerSynapse;
+
+			if ( (layer_rows <= desiredTileSize)||(layer_cols <= desiredTileSize) ) {
+				int peForOneMatrixRow = ceil( layer_rows /(double) peSize);
+				int peForOneMatrixCol = ceil( layer_cols /(double) peSize);
 				int numPERow = ceil((double) desiredTileSize/(double) peSize);
 				int numPECol = ceil((double) desiredTileSize/(double) peSize);
 				actualDupRow = floor(numPERow/peForOneMatrixRow)==0? 1:floor(numPERow/peForOneMatrixRow);
@@ -1205,6 +1238,8 @@ vector<vector<double> > PEDesign(bool Design, double peSize, double desiredTileS
 		peDupRow.push_back(actualDupRow);
 		peDupCol.push_back(actualDupCol);
 	}
+
+	// Law : This one is subject to change- this is calculated under the assumption that one tile maps one layer.
 	utilization = matrixTotalCM/(numTileTotal*desiredTileSize*desiredTileSize);
 	
 	vector<double> matrixTotal;
@@ -1238,29 +1273,34 @@ vector<vector<double> > SubArrayDup(double desiredPESizeCM, double desiredPESize
 	for (int i=0; i<netStructure.size(); i++) {
 		int actualDupRow = 0;
 		int actualDupCol = 0;
-		if (markNM[i] == 0){
-			if ( (netStructure[i][2]*netStructure[i][3]*netStructure[i][4]*numRowPerSynapse <= desiredPESizeCM)||(netStructure[i][5]*numColPerSynapse <= desiredPESizeCM) ) {
-				int arrayForOneMatrixRow = ceil((double) netStructure[i][2]*(double) netStructure[i][3]*(double) netStructure[i][4]*(double) numRowPerSynapse/(double) param->numRowSubArray);
-				int arrayForOneMatrixCol = ceil((double) netStructure[i][5]*(double) numColPerSynapse/(double) param->numColSubArray);
-				int numSubArrayRow = ceil((double) desiredPESizeCM/(double) param->numRowSubArray);
-				int numSubArrayCol = ceil((double) desiredPESizeCM/(double) param->numColSubArray);
-				actualDupRow = floor(numSubArrayRow/arrayForOneMatrixRow)==0? 1:floor(numSubArrayRow/arrayForOneMatrixRow);
-				actualDupCol = floor(numSubArrayCol/arrayForOneMatrixCol)==0? 1:floor(numSubArrayCol/arrayForOneMatrixCol);
-			} else {
-				actualDupRow = 1;
-				actualDupCol = 1;
-			}
+		if (param->rectpack){
+			actualDupRow = 1;
+			actualDupCol = 1;
 		} else {
-			if ( (netStructure[i][2]*numRowPerSynapse <= desiredPESizeNM)||(netStructure[i][5]*numColPerSynapse <= desiredPESizeNM) ) {
-				int arrayForOneMatrixRow = ceil((double) netStructure[i][2]*(double) numRowPerSynapse/(double) param->numRowSubArray);
-				int arrayForOneMatrixCol = ceil((double) netStructure[i][5]*(double) numColPerSynapse/(double) param->numColSubArray);
-				int numSubArrayRow = ceil((double) desiredPESizeNM/(double) param->numRowSubArray);
-				int numSubArrayCol = ceil((double) desiredPESizeNM/(double) param->numColSubArray);
-				actualDupRow = floor(numSubArrayRow/arrayForOneMatrixRow)==0? 1:floor(numSubArrayRow/arrayForOneMatrixRow);
-				actualDupCol = floor(numSubArrayCol/arrayForOneMatrixCol)==0? 1:floor(numSubArrayCol/arrayForOneMatrixCol);
+			if (markNM[i] == 0){
+				if ( (netStructure[i][2]*netStructure[i][3]*netStructure[i][4]*numRowPerSynapse <= desiredPESizeCM)||(netStructure[i][5]*numColPerSynapse <= desiredPESizeCM) ) {
+					int arrayForOneMatrixRow = ceil((double) netStructure[i][2]*(double) netStructure[i][3]*(double) netStructure[i][4]*(double) numRowPerSynapse/(double) param->numRowSubArray);
+					int arrayForOneMatrixCol = ceil((double) netStructure[i][5]*(double) numColPerSynapse/(double) param->numColSubArray);
+					int numSubArrayRow = ceil((double) desiredPESizeCM/(double) param->numRowSubArray);
+					int numSubArrayCol = ceil((double) desiredPESizeCM/(double) param->numColSubArray);
+					actualDupRow = floor(numSubArrayRow/arrayForOneMatrixRow)==0? 1:floor(numSubArrayRow/arrayForOneMatrixRow);
+					actualDupCol = floor(numSubArrayCol/arrayForOneMatrixCol)==0? 1:floor(numSubArrayCol/arrayForOneMatrixCol);
+				} else {
+					actualDupRow = 1;
+					actualDupCol = 1;
+				}
 			} else {
-				actualDupRow = 1;
-				actualDupCol = 1;
+				if ( (netStructure[i][2]*numRowPerSynapse <= desiredPESizeNM)||(netStructure[i][5]*numColPerSynapse <= desiredPESizeNM) ) {
+					int arrayForOneMatrixRow = ceil((double) netStructure[i][2]*(double) numRowPerSynapse/(double) param->numRowSubArray);
+					int arrayForOneMatrixCol = ceil((double) netStructure[i][5]*(double) numColPerSynapse/(double) param->numColSubArray);
+					int numSubArrayRow = ceil((double) desiredPESizeNM/(double) param->numRowSubArray);
+					int numSubArrayCol = ceil((double) desiredPESizeNM/(double) param->numColSubArray);
+					actualDupRow = floor(numSubArrayRow/arrayForOneMatrixRow)==0? 1:floor(numSubArrayRow/arrayForOneMatrixRow);
+					actualDupCol = floor(numSubArrayCol/arrayForOneMatrixCol)==0? 1:floor(numSubArrayCol/arrayForOneMatrixCol);
+				} else {
+					actualDupRow = 1;
+					actualDupCol = 1;
+				}
 			}
 		}
 		subArrayDupRow.push_back(actualDupRow);
@@ -1330,6 +1370,7 @@ vector<vector<double> > OverallEachLayer(bool utilization, bool speedUp, const v
 		}
 		numTileEachLayerRow.push_back(numtileEachLayerRow);
 		numTileEachLayerCol.push_back(numtileEachLayerCol);
+		
 		utilizationEachLayer.push_back(utilization);
 		if (!param->pipeline) {
 			speedUpEachLayerRow.push_back(peDup[0][i]*subArrayDup[0][i]);

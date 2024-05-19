@@ -43,6 +43,8 @@ class Param {
 public:
 	Param();
 
+	int rectpack;
+
 	int operationmode, operationmodeBack, memcelltype, accesstype, transistortype, deviceroadmap;      		
 	
 	double heightInFeatureSizeSRAM, widthInFeatureSizeSRAM, widthSRAMCellNMOS, widthSRAMCellPMOS, widthAccessCMOS, minSenseVoltage;

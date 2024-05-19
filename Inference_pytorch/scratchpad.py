@@ -38,3 +38,6 @@ plt.bar(titles,synapses)
 
 ax.yaxis.set_major_formatter(EngFormatter(unit=''))
 # %%
+notiw = 'asdwq'
+wild = 'asd'
+wild(3)

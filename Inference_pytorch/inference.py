@@ -162,7 +162,21 @@ if args.inference:
     print("variation: ")
     print(args.vari)
 
-logger('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
-	test_loss, correct, len(test_loader.dataset), acc))
+logger('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(test_loss, correct, len(test_loader.dataset), acc))
 
-call(["/bin/bash", './layer_record_'+str(args.model)+'/trace_command.sh'])
+# Law
+# Pass logdir to C++ to write debug CSV
+
+with open('./layer_record_'+str(args.model)+'/trace_command.sh', "a") as f:
+    f.write(args.logdir+f'/metrics_out{current_time}.csv ')
+
+# Law
+# Pass stdout to log in corresponding directory
+
+with open(args.logdir+f'/nsim_out{current_time}.txt','w') as c_stdoutfile:
+    call(["/bin/bash", './layer_record_'+str(args.model)+'/trace_command.sh'],
+        stdout = c_stdoutfile)
+
+# Also take note of the parameters for that run
+import os
+os.system(f"cp ./NeuroSIM/Param.cpp {args.logdir}/param{current_time}.txt")

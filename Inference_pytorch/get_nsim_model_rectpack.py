@@ -1,15 +1,10 @@
 #%%
 
-class thing(object):
-    pass
-
-args = thing()
-args.random = "yes"
-
-print(args.random)
-
 #%%
 
+# %run rpack_generate_netWork.py --dataset cifar10 --model VGG8 --mode FP --inference 1 --cellBit 1 --subArray 256 --parallelRead 256
+
+from aimc_tasks.comp_graph.packer_utils import plot_packing_tiled
 
 import argparse
 import os
@@ -160,7 +155,7 @@ core_size = (256,256)
 
 # TODO: forgot to split things
 
-acc_mapping = core.aimc_acc(
+acc_mapping = core.Aimc_acc(
      inshapes = shape_list,
      core_size = core_size
 )
@@ -171,9 +166,8 @@ acc_mapping.packer.rect_list()
 
 
 #%%
-from aimc_tasks.comp_graph.packer_utils import plot_packing_tiled
-plot_packing_tiled(acc_mapping.packer,
-                   f'{args.model}_{args.wl_weight}_{args.wl_activate}',
-                   20)
+# plot_packing_tiled(acc_mapping.packer,
+#                    f'{args.model}_{args.wl_weight}_{args.wl_activate}',
+#                    20)
 
 # Call with pandas

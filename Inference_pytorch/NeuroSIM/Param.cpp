@@ -54,6 +54,10 @@
 using namespace std;
 
 Param::Param() {
+	/* rectpack */
+	
+	rectpack = 1;
+	
 	/***************************************** user defined design options and parameters *****************************************/
 	operationmode = 2;     		// 1: conventionalSequential (Use several multi-bit RRAM as one synapse)
 								// 2: conventionalParallel (Use several multi-bit RRAM as one synapse)
@@ -546,4 +550,3 @@ Param::Param() {
 	}
 	/***************************************** Initialization of parameters NO need to modify *****************************************/
 }
-

@@ -129,4 +129,5 @@ def hardware_evaluation(model,wl_weight,wl_activation,subArray,parallelRead,mode
     for i, layer in enumerate(model.modules()):
         if isinstance(layer, (FConv2d, QConv2d, nn.Conv2d)) or isinstance(layer, (FLinear, QLinear, nn.Linear)):
             hook_handle_list.append(layer.register_forward_hook(Neural_Sim))
+
     return hook_handle_list
