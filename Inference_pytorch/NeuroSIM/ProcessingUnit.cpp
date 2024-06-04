@@ -71,6 +71,12 @@ DFF *bufferOutputCM;
 
 void ProcessingUnitInitialize(SubArray *& subArray, InputParameter& inputParameter, Technology& tech, MemCell& cell, int _numSubArrayRowNM, int _numSubArrayColNM, int _numSubArrayRowCM, int _numSubArrayColCM) {
 
+	// Accounts for numColMuxed (ADC sharing by subarrays)
+	// Initializes subArray (SA contains nothing but wires and cells)
+	// Initializes adderTree (?? for the PE?) (is this accumulation?) TODO: CHANGE THIS ASSUMPTION
+	// Initialize input & output bus	(larger if sync_data_transfer)
+	// Initialize input & output buffer	(larger if sync_data_transfer)
+
 	/*** circuit level parameters ***/
 	switch(param->memcelltype) {
 		case 3:     cell.memCellType = Type::FeFET; break;
@@ -160,7 +166,7 @@ void ProcessingUnitInitialize(SubArray *& subArray, InputParameter& inputParamet
 	subArray->numCellPerSynapse = param->numColPerSynapse;
 	subArray->SARADC = param->SARADC;
 	subArray->currentMode = param->currentMode;
-	subArray->validated = param->validated;
+	subArray->validated = param->validated; // That is, if it's chip validated
 	subArray->spikingMode = NONSPIKING;
 	// Anni update
 	subArray->numRowParallel = param->numRowParallel;

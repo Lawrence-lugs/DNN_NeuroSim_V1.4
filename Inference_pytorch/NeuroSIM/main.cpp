@@ -55,10 +55,11 @@
 #include "ProcessingUnit.h"
 #include "SubArray.h"
 #include "Definition.h"
+#include "rpack.h"
 
 using namespace std;
 
-vector<vector<double> > getNetStructure(const string &inputfile);
+vector<vector<double>> getNetStructure(const string &inputfile);
 
 int main(int argc, char * argv[]) {   
 
@@ -66,14 +67,10 @@ int main(int argc, char * argv[]) {
     
     gen.seed(0);
     
-    vector<vector<double> > netStructure;
+    vector<vector<double>> netStructure;
     netStructure = getNetStructure(argv[1]);
 
-    vector<vector<double>> rectList;
-    if(param->rectpack){
-        // getNetStructure is just a csv to 2D vector parser
-        rectList = getNetStructure(argv[argc-1]);
-    }
+    rpackInfo rpackinfo(argv[argc - 1]);
     
     // define weight/input/memory precision from wrapper
     param->synapseBit = atoi(argv[2]);              // precision of synapse weight
@@ -172,19 +169,19 @@ int main(int argc, char * argv[]) {
     
     numTileEachLayer = ChipFloorPlan(true, false, false, netStructure, markNM, 
                     maxPESizeNM, maxTileSizeCM, numPENM, pipelineSpeedUp,
-                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rectList);    
+                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rpackinfo);    
     
     utilizationEachLayer = ChipFloorPlan(false, true, false, netStructure, markNM, 
                     maxPESizeNM, maxTileSizeCM, numPENM, pipelineSpeedUp,
-                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rectList);
+                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rpackinfo);
     
     speedUpEachLayer = ChipFloorPlan(false, false, true, netStructure, markNM,
                     maxPESizeNM, maxTileSizeCM, numPENM, pipelineSpeedUp,
-                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rectList);
+                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rpackinfo);
                     
     tileLocaEachLayer = ChipFloorPlan(false, false, false, netStructure, markNM,
                     maxPESizeNM, maxTileSizeCM, numPENM, pipelineSpeedUp,
-                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rectList);
+                    &desiredNumTileNM, &desiredPESizeNM, &desiredNumTileCM, &desiredTileSizeCM, &desiredPESizeCM, &numTileRow, &numTileCol, rpackinfo);
     
     cout << "------------------------------ FloorPlan --------------------------------" <<  endl;
     cout << endl;
@@ -252,6 +249,14 @@ int main(int argc, char * argv[]) {
     chipAreaAccum = chipAreaResults[3];
     chipAreaOther = chipAreaResults[4];
     chipAreaArray = chipAreaResults[5];
+
+    cout << "ChipArea : " << chipArea*1e12 << "um^2" << endl;
+    cout << "Chip total CIM array : " << chipAreaArray*1e12 << "um^2" << endl;
+    cout << "Total IC Area on chip (Global and Tile/PE local): " << chipAreaIC*1e12 << "um^2" << endl;
+    cout << "Total ADC (or S/As and precharger for SRAM) Area on chip : " << chipAreaADC*1e12 << "um^2" << endl;
+    cout << "Total Accumulation Circuits (subarray level: adders, shiftAdds; PE/Tile/Global level: accumulation units) on chip : " << chipAreaAccum*1e12 << "um^2" << endl;
+    cout << "Other Peripheries (e.g. decoders, mux, switchmatrix, buffers, pooling and activation units) : " << chipAreaOther*1e12 << "um^2" << endl;
+
 
     double clkPeriod = 0;
     double layerclkPeriod = 0;
@@ -613,52 +618,3 @@ int main(int argc, char * argv[]) {
 
     return 0;
 }
-
-vector<vector<double> > getNetStructure(const string &inputfile) {
-    ifstream infile(inputfile.c_str());      
-    string inputline;
-    string inputval;
-    
-    int ROWin=0, COLin=0;      
-    if (!infile.good()) {        
-        cerr << "Error: the input file cannot be opened!" << endl;
-        exit(1);
-    }else{
-        while (getline(infile, inputline, '\n')) {       
-            ROWin++;                                
-        }
-        infile.clear();
-        infile.seekg(0, ios::beg);      
-        if (getline(infile, inputline, '\n')) {        
-            istringstream iss (inputline);      
-            while (getline(iss, inputval, ',')) {       
-                COLin++;
-            }
-        }   
-    }
-    infile.clear();
-    infile.seekg(0, ios::beg);          
-
-    vector<vector<double> > netStructure;               
-    for (int row=0; row<ROWin; row++) { 
-        vector<double> netStructurerow;
-        getline(infile, inputline, '\n');             
-        istringstream iss;
-        iss.str(inputline);
-        for (int col=0; col<COLin; col++) {       
-            while(getline(iss, inputval, ',')){ 
-                istringstream fs;
-                fs.str(inputval);
-                double f=0;
-                fs >> f;                
-                netStructurerow.push_back(f);           
-            }           
-        }       
-        netStructure.push_back(netStructurerow);
-    }
-    infile.close();
-    
-    return netStructure;
-    netStructure.clear();
-}   
-

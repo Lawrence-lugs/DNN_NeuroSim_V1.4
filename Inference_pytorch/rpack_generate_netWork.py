@@ -69,6 +69,23 @@ for k, v in args.__dict__.items():
 logger("========================================")
 
 args.cuda = torch.cuda.is_available()
+
+# seed
+torch.manual_seed(args.seed)
+if args.cuda:
+	torch.cuda.manual_seed(args.seed)
+
+# data loader and model
+assert args.dataset in ['cifar10', 'cifar100', 'imagenet'], args.dataset
+if args.dataset == 'cifar10':
+    train_loader, test_loader = dataset.get_cifar10(batch_size=args.batch_size, num_workers=1)
+elif args.dataset == 'cifar100':
+    train_loader, test_loader = dataset.get_cifar100(batch_size=args.batch_size, num_workers=1)
+elif args.dataset == 'imagenet':
+    train_loader, test_loader = dataset.get_imagenet(batch_size=args.batch_size, num_workers=1)
+else:
+    raise ValueError("Unknown dataset type")
+
     
 assert args.model in ['VGG8', 'DenseNet40', 'ResNet18'], args.model
 if args.model == 'VGG8':
@@ -88,9 +105,73 @@ elif args.model == 'ResNet18':
 else:
     raise ValueError("Unknown model type")
 
+if args.cuda:
+	modelCF.cuda()
+
+best_acc, old_file = 0, None
+t_begin = time.time()
+# ready to go
 modelCF.eval()
 
-#%%
+test_loss = 0
+correct = 0
+trained_with_quantization = True
+
+criterion = torch.nn.CrossEntropyLoss()
+# criterion = wage_util.SSE()
+
+# NOTE: Parallel read is not supported in inference accuracy simulation with multi-level cells yet
+if args.parallelRead < args.subArray and args.cellBit > 1:
+    logger('\n=====================================================================================')
+    logger('ERROR: Partial parallel read is not supported for multi-level cells yet!')
+    logger('Please make sure parallelRead == subArray when cellBit > 1.')
+    logger('We will support partial parallel for multi-level cells in DNN_NeuroSim V1.5 (to be released in Spring 2024).')
+    logger('Thank you for using NeuroSim! We appreciate your patience.')
+    logger('=====================================================================================\n')
+    exit()
+
+# for data, target in test_loader:
+for i, (data, target) in enumerate(test_loader):
+    if i==0:
+        hook_handle_list = hook.hardware_evaluation(modelCF,args.wl_weight,args.wl_activate,args.subArray,args.parallelRead,args.model,args.mode)
+    indx_target = target.clone()
+    if args.cuda:
+        data, target = data.cuda(), target.cuda()
+    with torch.no_grad():
+        data, target = Variable(data), Variable(target) # outdated way of activating autograd, this is no longer needed
+        output = modelCF(data)
+        test_loss_i = criterion(output, target)
+        test_loss += test_loss_i.data
+        pred = output.data.max(1)[1]  # get the index of the max log-probability
+        correct += pred.cpu().eq(indx_target).sum()
+    if i==0:
+        hook.remove_hook_list(hook_handle_list)
+
+test_loss = test_loss / len(test_loader)  # average over number of mini-batch
+acc = 100. * correct / len(test_loader.dataset)
+
+accuracy = acc.cpu().data.numpy()
+
+if args.inference:
+    print(" --- Hardware Properties --- ")
+    print("subArray size: ")
+    print(args.subArray)
+    print("parallel read: ")
+    print(args.parallelRead)
+    print("ADC precision: ")
+    print(args.ADCprecision)
+    print("cell precision: ")
+    print(args.cellBit)
+    print("on/off ratio: ")
+    print(args.onoffratio)
+    print("variation: ")
+    print(args.vari)
+
+logger('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(test_loss, correct, len(test_loader.dataset), acc))
+
+with open('./layer_record_'+str(args.model)+'/trace_command.sh', "a") as f:
+    f.write(args.logdir+f'/metrics_out_{args.model}_{args.wl_weight}_{args.wl_activate}_{current_time}.csv ')
+
 def write_tuple_list_csv(csvname,tuple_list):
     with open(csvname,'w') as f:   
         for rect in tuple_list:
@@ -143,10 +224,22 @@ if args.model == 'ResNet18':
     import rpack_nsim.utils
     node_exec_list, rid_exec_list = rpack_nsim.utils.get_cgraph_valid_exec_order(acc_mapping)
 
-    node_exec_order_name = f'rectpack_networks/node_execorder_{args.model}_{args.wl_weight}_{args.wl_activate}_{current_time}.csv'
-    rid_exec_order_name = f'rectpack_networks/rid_execorder_{args.model}_{args.wl_weight}_{args.wl_activate}_{current_time}.csv'
+    node_exec_order_name = f'rectpack_networks/node_execorder_{current_time}.csv'
+    rid_exec_order_name = f'rectpack_networks/rid_execorder_{current_time}.csv'
+    rect_list_name = f'rectpack_networks/rect_list_{current_time}.csv'
+    
     write_tuple_list_csv(node_exec_order_name,node_exec_list)
     write_tuple_list_csv(rid_exec_order_name,rid_exec_list)
+    write_tuple_list_csv(rect_list_name,acc_mapping.packer.rect_list())
+
+with open(args.logdir+f'/nsim_out_{args.model}_{args.wl_weight}_{args.wl_activate}_{current_time}.txt','w') as c_stdoutfile:
+    call(["/bin/bash", './layer_record_'+str(args.model)+'/trace_command.sh'],
+        stdout = c_stdoutfile)
+
+# Also take note of the parameters for that run
+import os
+os.system(f"cp ./NeuroSIM/Param.cpp {args.logdir}/param_{args.model}_{args.wl_weight}_{args.wl_activate}_{current_time}.txt")
+
 
 
 

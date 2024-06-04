@@ -57,6 +57,7 @@
 #include "Chip.h"
 // Anni update
 #include "XYBus.h"			  
+#include "rpack.h"
 
 using namespace std;
 
@@ -187,7 +188,7 @@ vector<int> ChipDesignInitialize(InputParameter& inputParameter, Technology& tec
 
 vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bool findSpeedUp, const vector<vector<double> > &netStructure, const vector<int > &markNM, 
 					double maxPESizeNM, double maxTileSizeCM, double numPENM, const vector<int> &pipelineSpeedUp,
-					double *desiredNumTileNM, double *desiredPESizeNM, double *desiredNumTileCM, double *desiredTileSizeCM, double *desiredPESizeCM, int *numTileRow, int *numTileCol, const vector<vector<double> > &rectList) {
+					double *desiredNumTileNM, double *desiredPESizeNM, double *desiredNumTileCM, double *desiredTileSizeCM, double *desiredPESizeCM, int *numTileRow, int *numTileCol, const rpackInfo &rpackinfo) {
 	
 	int numRowPerSynapse, numColPerSynapse;
 	numRowPerSynapse = param->numRowPerSynapse;
@@ -216,7 +217,7 @@ vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bo
 		// rectpack mapping
 		// reuse variables of conventional mapping 
 		
-		if(rectList.size() > 256){
+		if(rpackinfo.binCount > 256){
 			// Convention to use 4x4 elements per hierarchy borrowed from digital accelerators (Mei, Verhelst)
 			*desiredPESizeCM = 4*param->numRowSubArray;
 			*desiredTileSizeCM = 4*param->numRowSubArray;
@@ -226,7 +227,7 @@ vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bo
 			*desiredTileSizeCM = 2*param->numRowSubArray;
 		}
 
-		*desiredNumTileCM = rectList.size();	
+		*desiredNumTileCM = rpackinfo.binCount;	
 
 		peDup = PEDesign(false, (*desiredPESizeCM), (*desiredTileSizeCM), (*desiredNumTileCM), markNM, netStructure, numRowPerSynapse, numColPerSynapse);
 		/*** SubArray Duplication ***/
@@ -397,6 +398,13 @@ vector<vector<double> > ChipFloorPlan(bool findNumTile, bool findUtilization, bo
 void ChipInitialize(InputParameter& inputParameter, Technology& tech, MemCell& cell, const vector<vector<double> > &netStructure, const vector<int > &markNM, const vector<vector<double> > &numTileEachLayer,
 					double numPENM, double desiredNumTileNM, double desiredPESizeNM, double desiredNumTileCM, double desiredTileSizeCM, double desiredPESizeCM, int numTileRow, int numTileCol) { 
 
+// 	Top-level blocks creation
+// 	Initializes the global bus model (HTree or XY)
+// 	Initializes the global activation (ReLU and Inter-tile? Accumulation)
+//  Initializes the tiles model
+//  Initializes the global buffer
+//  Initializes the global maxpooler
+
 	/*** Initialize Tile ***/
 	TileInitialize(inputParameter, tech, cell, numPENM, desiredPESizeNM, ceil((double)(desiredTileSizeCM)/(double)(desiredPESizeCM)), desiredPESizeCM);
 
@@ -462,7 +470,8 @@ void ChipInitialize(InputParameter& inputParameter, Technology& tech, MemCell& c
 	maxPool->Initialize(param->numBitInput, 2*2,  max((desiredTileSizeCM/(double) param->numColMuxed), desiredPESizeNM/(double) param->numColMuxed), param->clkFreq);
 	
 	// Anni update
-	if (param->globalBusType) {
+	// XY Bus or H Tree
+	if (param->globalBusType) { 
 	
 		// 230920 update
 		double areaNMTile, areaCMTile;
@@ -520,9 +529,11 @@ void ChipInitialize(InputParameter& inputParameter, Technology& tech, MemCell& c
 		// Anni update: numBitSubarrayOutput
 		int numBitSubarrayOutput = 0;
 		if (param->parallelRead) {		
-			numBitSubarrayOutput = log2((double)param->levelOutput)+ceil(log2(ceil(param->numRowSubArray/param->numRowParallel)))+param->numBitInput+(param->numColPerSynapse-1)*param->cellBit+1;
+			int adcBit = log2((double)param->levelOutput);
+			int parallelReadBitGrowth = ceil(log2(ceil(param->numRowSubArray/param->numRowParallel)));
+			numBitSubarrayOutput = adcBit + parallelReadBitGrowth + param->numBitInput + (param->numColPerSynapse-1) * param->cellBit + 1 ;
 		} else{
-			numBitSubarrayOutput = ceil(log2((double)param->numRowSubArray))+param->cellBit+param->numBitInput+(param->numColPerSynapse-1)*param->cellBit+1;
+			numBitSubarrayOutput = ceil(log2((double)param->numRowSubArray))+ param->cellBit + param->numBitInput + (param->numColPerSynapse-1) * param->cellBit + 1;
 		}
 
 		int maxThroughputTile, maxAddFromSubArray;
@@ -586,6 +597,16 @@ void ChipInitialize(InputParameter& inputParameter, Technology& tech, MemCell& c
 vector<double> ChipCalculateArea(InputParameter& inputParameter, Technology& tech, MemCell& cell, double desiredNumTileNM, double numPENM, double desiredPESizeNM, double desiredNumTileCM, double desiredTileSizeCM, 
 						double desiredPESizeCM, int numTileRow, double *height, double *width, double *CMTileheight, double *CMTilewidth, double *NMTileheight, double *NMTilewidth) {
 	
+	// Calls TileCalculateArea
+	// globalBuffer area is based on the number of TileRows (and the earlier initialized globalBuffer)
+	// globalHtree area
+	// maxPool area
+	// accumulation area
+	// ReLU area
+
+	// height and width are assuming the entire thing is square
+	
+
 	vector<double> areaResults;
 	
 	double area = 0;
@@ -720,7 +741,16 @@ double ChipCalculatePerformance(InputParameter& inputParameter, Technology& tech
 							double *readLatency, double *readDynamicEnergy, double *leakage, double *leakageSRAMInUse, double *bufferLatency, double *bufferDynamicEnergy, double *icLatency, double *icDynamicEnergy, 
 							double *coreLatencyADC, double *coreLatencyAccum, double *coreLatencyOther, double *coreEnergyADC, double *coreEnergyAccum, double *coreEnergyOther, bool CalculateclkFreq, double *clkPeriod) {
 	
-	
+	// Loads in the layerTraces from Python inference
+	// Sets all clkFreq to the param ClkFreq
+	// Calculates numInVector (based on some 7th spot)
+	// for tile in tilesOccupiedByLayer
+	//		Calculate TilePerformance
+	// Calculate ReLU Latency & Power
+	// Calculate Gaccumulation Perf 		if this layer occupied more than one tile.
+	// Calculate MaxPool Perf			 	if this layer is followed by maxpool
+	// 
+
 	int numRowPerSynapse, numColPerSynapse;
 	numRowPerSynapse = param->numRowPerSynapse;
 	numColPerSynapse = param->numColPerSynapse;
@@ -769,15 +799,20 @@ double ChipCalculatePerformance(InputParameter& inputParameter, Technology& tech
 		maxPool->clkFreq = param->clkFreq; 
 	}
 
+	// (AX - FX + 1)/? * (AY - FY + 1)/?
+	// follows the reshaped input from utee/hook.py:70 <stretch_input>
 	int numInVector = (netStructure[l][0]-netStructure[l][3]+1)/netStructure[l][7]*(netStructure[l][1]-netStructure[l][4]+1)/netStructure[l][7];
 	
 	// 230920 update
 	int totalNumTile = 0;
 	int totalInput=0; 
 
+	// TODO: Change
+	// Each layer becomes a tile
 	for (int i=0; i<netStructure.size(); i++) {
 		totalNumTile += numTileEachLayer[0][i] * numTileEachLayer[1][i];
 		if (markNM[l]==0){
+			// C*FX*FY * (AX-FX+1)/? * (AY-FY+1)/?
 			totalInput += netStructure[l][2]*netStructure[l][3]*netStructure[l][4] * (netStructure[l][0]-netStructure[l][3]+1)/netStructure[l][7]*(netStructure[l][1]-netStructure[l][4]+1)/netStructure[l][7];
 		}
 		else {
@@ -789,11 +824,19 @@ double ChipCalculatePerformance(InputParameter& inputParameter, Technology& tech
 	double totalnumTileRow = ceil((double)sqrt(totalNumTile));
 	double totalnumTileCol = ceil((double)(totalNumTile)/(double)(totalnumTileRow));																			 
 	
+	// slight refactor
+	// C * FX * FY * nRowsPerSynapse / TileSize
+	int activationRows = ceil((double) netStructure[l][2]*(double) netStructure[l][3]*(double) netStructure[l][4]*(double) numRowPerSynapse/desiredTileSizeCM);
+	// K * nColPerSynapse / TileSize
+	int activationCols = ceil((double) netStructure[l][5]*(double) numColPerSynapse/(double) desiredTileSizeCM);
+	
+	// for tile in tilesOccupiedByLayer
 	if (markNM[l] == 0) {   // conventional mapping
-		for (int i=0; i<ceil((double) netStructure[l][2]*(double) netStructure[l][3]*(double) netStructure[l][4]*(double) numRowPerSynapse/desiredTileSizeCM); i++) {       // # of tiles in row
-			for (int j=0; j<ceil((double) netStructure[l][5]*(double) numColPerSynapse/(double) desiredTileSizeCM); j++) {   // # of tiles in Column
+		for (int i=0; i< activationRows; i++) {       // # of tiles in row
+			for (int j=0; j< activationCols; j++) {   // # of tiles in Column
 				
-				
+				// Calculate the tile's performance here
+
 				double tileReadLatency = 0;
 				double tileReadDynamicEnergy = 0;
 				double tilebufferLatency = 0;
@@ -912,15 +955,22 @@ double ChipCalculatePerformance(InputParameter& inputParameter, Technology& tech
 			if (param->globalBusType) {
 				
 				// 230920 update
+				// C*FX*FY*(AX-FX+1)/?*(AY-FY+1)/? == numSynapses of layer
 				double fraction = netStructure[l][2]*netStructure[l][3]*netStructure[l][4] * (netStructure[l][0]-netStructure[l][3]+1)/netStructure[l][7]*(netStructure[l][1]-netStructure[l][4]+1)/netStructure[l][7];
 
-				if (param->novelMapping && param->sync_data_transfer) GhTree->CalculateLatency(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], NMTileheight, NMTilewidth, ceil((numBitToLoadOut+numBitToLoadIn)/floor(GhTree->busWidth*(fraction/totalInput))));
-				else GhTree->CalculateLatency(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], CMTileheight, CMTilewidth, ceil((numBitToLoadOut+numBitToLoadIn)/ceil(GhTree->busWidth*(numTileEachLayer[0][l]*numTileEachLayer[1][l]/totalNumTile))));
-				if (param->novelMapping && param->sync_data_transfer) GhTree->CalculatePower(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], NMTileheight, NMTilewidth, ceil(GhTree->busWidth*(fraction/totalInput)), 
+				if (param->novelMapping && param->sync_data_transfer) {
+					GhTree->CalculateLatency(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], NMTileheight, NMTilewidth, ceil((numBitToLoadOut+numBitToLoadIn)/floor(GhTree->busWidth*(fraction/totalInput))));
+				} else { 
+					GhTree->CalculateLatency(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], CMTileheight, CMTilewidth, ceil((numBitToLoadOut+numBitToLoadIn)/ceil(GhTree->busWidth*(numTileEachLayer[0][l]*numTileEachLayer[1][l]/totalNumTile))));
+				} 
+				if (param->novelMapping && param->sync_data_transfer) {
+					GhTree->CalculatePower(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], NMTileheight, NMTilewidth, ceil(GhTree->busWidth*(fraction/totalInput)), 
 							ceil((numBitToLoadOut*param->inputtoggle)/floor(GhTree->busWidth*(fraction/totalInput) )) + ceil((numBitToLoadIn*param->outputtoggle)/floor(GhTree->busWidth*(fraction/totalInput) ) ) );
-				else GhTree->CalculatePower(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], CMTileheight, CMTilewidth, ceil(GhTree->busWidth*(numTileEachLayer[0][l]*numTileEachLayer[1][l]/totalNumTile)), 
+				} else { 
+					GhTree->CalculatePower(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], CMTileheight, CMTilewidth, ceil(GhTree->busWidth*(numTileEachLayer[0][l]*numTileEachLayer[1][l]/totalNumTile)), 
 							ceil((numBitToLoadOut*param->inputtoggle)/ceil(GhTree->busWidth*(numTileEachLayer[0][l]*numTileEachLayer[1][l]/totalNumTile) )) + ceil((numBitToLoadIn*param->outputtoggle)/ceil(GhTree->busWidth*(numTileEachLayer[0][l]*numTileEachLayer[1][l]/totalNumTile) ) ) );
-				
+				}
+
 				// GhTree->CalculateLatency(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], CMTileheight, CMTilewidth, ceil((numBitToLoadOut+numBitToLoadIn)/GhTree->busWidth));
 				// GhTree->CalculatePower(0, 0, tileLocaEachLayer[0][l], tileLocaEachLayer[1][l], CMTileheight, CMTilewidth, GhTree->busWidth, 
 				// 					ceil((numBitToLoadOut+numBitToLoadIn)/GhTree->busWidth));
@@ -1319,7 +1369,7 @@ vector<vector<double> > OverallEachLayer(bool utilization, bool speedUp, const v
 										double desiredPESizeNM, const vector<int > &markNM, const vector<vector<double> > &netStructure, int numRowPerSynapse, int numColPerSynapse, double numPENM) {
 	vector<double> numTileEachLayerRow;
 	vector<double> numTileEachLayerCol;
-	vector<vector<double> > utilizationEachLayer;	
+	vector<vector<double>> utilizationEachLayer;	
 	vector<double> speedUpEachLayerRow;
 	vector<double> speedUpEachLayerCol;
 	

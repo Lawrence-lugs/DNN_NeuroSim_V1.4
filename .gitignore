@@ -1,0 +1,8 @@
+*.png
+*__pycache__*
+*/rectpack_networks/*.csv
+layer_record*
+Inference_pytorch/log/*
+Inference_pytorch/NeuroSIM/*.o
+*.pyc
+.vscode

@@ -79,7 +79,15 @@ Sigmoid *sigmoidNM;
 BitShifter *reLuNM;
 
 void TileInitialize(InputParameter& inputParameter, Technology& tech, MemCell& cell, double _numPENM, double _peSizeNM, double _numPECM, double _peSizeCM){
-	
+
+// 	Initializes ProcessingUnit (the PEs)
+// 	if chipactivations are inside the cells, initializes accumulation and ReLU inside as well.
+//  Initializes outputBuffer (tile-level) -- no touch, outside scope
+//  Initialzies numInBuffer (tile-level)
+//  Initializes accumulation
+//  Initializes ReLU if in-tile activation
+//  Initializes an internal HTree (no XY bus option here) -- different from the globalHTree
+
 	subArrayInPE = new SubArray(inputParameter, tech, cell);
 	inputBufferNM = new Buffer(inputParameter, tech, cell);
 	outputBufferNM = new Buffer(inputParameter, tech, cell);
@@ -178,6 +186,8 @@ void TileInitialize(InputParameter& inputParameter, Technology& tech, MemCell& c
 	} 
 
 	// Anni update: numBitPEOutputCM, numOutBufferCoreCM, numInBufferCoreCM
+	// Law-the PE output is SA + number of subarrays per side.
+	// Isn't this missing a log for the bit growth term for the SA rows?
 	numBitPEOutputCM = numBitSubarrayOutput + ceil(sqrt(numSubArrayCM));	
     // 230920 update
     accumulationCM->Initialize(numPECM, numBitPEOutputCM, ceil((double)numPECM*(double)peSizeCM/(double)param->numColMuxed), param->clkFreq);

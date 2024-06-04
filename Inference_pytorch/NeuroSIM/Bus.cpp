@@ -53,6 +53,9 @@ Bus::Bus(const InputParameter& _inputParameter, const Technology& _tech, const M
 }
 
 void Bus::Initialize(BusMode _mode, int _numRow, int _numCol, double _delaytolerance, double _busWidth, double _unitHeight, double _unitWidth, double _clkFreq){
+
+	// Calculates capacitances, number of repeaters and repeater size.
+
 	if (initialized)
 		cout << "[Bus] Warning: Already initialized!" << endl;
 	

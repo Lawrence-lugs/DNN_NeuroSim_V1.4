@@ -210,7 +210,9 @@ Param::Param() {
 	numColSubArray = 256;               // # of columns in single subArray
 
 	// 230920 update
-
+	
+	// if this is 1, all the subarrays output their data to the PE at the same time
+	// else, only 1 subarray outputs its data to the PE at any point in time.
 	sync_data_transfer=0;
 
 	/*** initialize operationMode as default ***/ 

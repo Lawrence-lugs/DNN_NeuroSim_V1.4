@@ -83,6 +83,23 @@ SubArray::SubArray(InputParameter& _inputParameter, Technology& _tech, MemCell& 
 
 void SubArray::Initialize(int _numRow, int _numCol, double _unitWireRes){  //initialization module
 	
+	// Calculates array dimensions in nm
+	// Calculates BL, WL, SL capacitances (hardcoded to 0.2fF per cell)
+	// Calculates BL, WL, SL resistances (based on params) TODO: Put here
+
+	// Access transistor properties
+	// SRAM cell capacitance
+
+	// wlSwitchMatrix (insert buffers if the SRAM are too large)
+	// mux & mux decoder (for sharing the ADC)
+	// MLSA (flash ADC) and ADC encoder
+
+	// shift-adder for input partial sums
+	// shift-adder for weight partial sums
+
+	// precharger & write driver
+
+
 	numRow = _numRow;    // import parameters
 	numCol = _numCol;
 	unitWireRes = _unitWireRes;
@@ -136,6 +153,8 @@ void SubArray::Initialize(int _numRow, int _numCol, double _unitWireRes){  //ini
     MIN_CELL_WIDTH  *= 1;
 
 	// 1.4 update : think about the factor multiplied by the cell width/height for the relaxation 
+
+	// TODO: Change lengthRow and lengthCol to correspond to my array
 
 	if (cell.memCellType == Type::SRAM) {  //if array is SRAM
 		if (relaxArrayCellWidth) {  //if want to relax the cell width
